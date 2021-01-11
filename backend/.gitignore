@@ -1,0 +1,6 @@
+dist/
+yarn-error.log
+.env*
+.eslintignore
+node_modules/
+
