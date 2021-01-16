@@ -1,7 +1,31 @@
-import { Allocation, Order, Position } from '../../model';
+import { Allocation, Order, Position, Quote } from '../../model';
 import { Brokerage } from '../brokerage';
 import { Strategy, StrategyResult } from './index';
-import { flattenAllocations } from '../../service/allocation-service';
+// import { flattenAllocations } from '../../service/allocation-service';
+
+interface Diff {
+    // an asset or an asset class
+    asset: string;
+    idealRatio: number;
+    ratio: number;
+    diff: number;
+}
+
+const getPositionMap = (positions: Position[]): Map<string, Position> =>
+    positions.reduce((indexedPositions, position) => {
+        const previousPosition = indexedPositions.get(position.symbol);
+        if (!previousPosition) {
+            indexedPositions.set(position.symbol, position);
+            return indexedPositions;
+        }
+
+        indexedPositions.set(previousPosition.symbol, {
+            ...previousPosition,
+            quantity: previousPosition.quantity + position.quantity,
+        });
+
+        return indexedPositions;
+    }, new Map());
 
 /**
  * Return a map of positions keyed by the symbol
@@ -20,265 +44,425 @@ const getAssetMap = (positions: Position[]): Map<string, number> => {
 
 export const getActualRatios = (positions: Position[]): Map<string, number> => {
     const totalMarketValue = positions.reduce((total: number, position: Position) => total + position.marketValue, 0);
-    const assetMap = new Map<string, number>();
-    positions.reduce((map, { symbol, marketValue }) => {
-        assetMap.set(symbol, marketValue / totalMarketValue);
+    const marketValueMap = new Map<string, number>();
+
+    return positions.reduce((assetMap, { symbol, marketValue }) => {
+        marketValueMap.set(symbol, (marketValueMap.get(symbol) || 0) + marketValue);
+        assetMap.set(symbol, (marketValueMap.get(symbol) || 0) / totalMarketValue);
 
         return assetMap;
-    }, assetMap);
-
-    return assetMap;
+    }, new Map<string, number>());
 };
 
-const getCurrentAllocation = getActualRatios;
-
-interface AnyObject<T> {
-    [key: string]: T;
-    [key: number]: T;
-}
-
-interface Diff {
-    equity: string;
-    idealRatio: number;
-    ratio: number;
-    diff: number;
-}
 const findCurrentRatio = (allocation: Allocation, ratios: Map<string, number>): number => {
-    const { equity } = allocation;
-    if (Array.isArray(equity)) {
-        return equity.reduce(
+    const { asset } = allocation;
+    if (Array.isArray(asset)) {
+        return asset.reduce(
             (currentRatio, childAllocation) => currentRatio + findCurrentRatio(childAllocation, ratios),
             0,
         );
     }
 
-    if (!ratios.has(equity)) {
-        console.warn(`Could not find ratio for ${equity}`);
+    if (!ratios.has(asset)) {
+        // console.warn(`Could not find ratio for ${asset}`);
         return 0;
     }
 
-    return ratios.get(equity) ?? 0;
+    return ratios.get(asset) ?? 0;
 };
 
-// const findCurrentValue = (allocation: Allocation, positions: Position[]): number => {
-//     const { equity } = allocation;
-//     if (Array.isArray(equity)) {
-//         return equity.reduce(
-//             (currentValue, childAllocation) => currentValue + findCurrentValue(childAllocation, positions),
-//             0,
-//         );
-//     }
-//
-//     const position = positions.get(equity);
-//     if (!position) {
-//         console.warn(`Could not find position ${equity}`);
-//         return 0;
-//     }
-//
-//     return position.quantity * position.currentPrice;
-// };
-
-const findDiffs = (allocations: Allocation[], positions: Position[], parentRatio?: number): Record<string, Diff> => {
+const findDiffs = (allocations: Allocation[], positions: Position[], parentRatio?: number): Map<string, Diff> => {
     const total = allocations.reduce((sum: number, allocation: Allocation) => sum + allocation.ratio, 0);
     const ratios = getActualRatios(positions);
 
-    let diffs: Record<string, Diff> = {};
+    let diffs = new Map<string, Diff>();
     allocations.forEach((allocation) => {
-        const { equity, ratio: idealRatio } = allocation;
-        if (Array.isArray(equity)) {
-            diffs = { ...diffs, ...findDiffs(equity, positions, idealRatio / total) };
+        const { asset, ratio: idealRatio } = allocation;
+        if (Array.isArray(asset)) {
+            diffs = new Map<string, Diff>([...diffs, ...findDiffs(asset, positions, idealRatio / total)]);
             return;
         }
 
-        const ratio = ratios.get(equity) || 0;
+        const ratio = ratios.get(asset) || 0;
+        const nextIdealRatio = (idealRatio / total) * (parentRatio ?? 1);
 
-        diffs[equity] = {
-            equity,
+        diffs.set(asset, {
+            asset,
             ratio,
-            idealRatio: (idealRatio / total) * (parentRatio ?? 1),
-            diff: idealRatio - ratio,
-        };
+            idealRatio: nextIdealRatio,
+            diff: nextIdealRatio - ratio,
+        });
     });
 
     return diffs;
 };
 
-const getEquityPriority = (allocations: Allocation[], positions: Position[]): string[] => {
-    const equities: string[] = [];
+export const getEquityPriorityV2 = (allocations: Allocation[], positions: Position[]): string[] => {
     if (allocations.length === 0) {
-        return equities;
+        return [];
     }
 
     // Find the biggest diff
     const actualRatios = getActualRatios(positions);
     const diffs = allocations.map((allocation) => {
-        const { name, equity, ratio } = allocation;
+        const { name, asset, ratio: idealRatio } = allocation;
         const actualRatio = findCurrentRatio(allocation, actualRatios);
         return {
-            equity: typeof equity === 'string' ? equity : name ?? '',
-            idealRatio: ratio,
-            actualRatio,
-            diff: ratio - actualRatio,
-        };
-    });
-
-    // FIXME: Handle ties to be more deterministic
-    diffs.sort((a, b) => {
-        if (b.diff !== a.diff) {
-            return b.diff - a.diff;
-        }
-
-        return b.equity > a.equity ? 1 : -1;
-    });
-
-    diffs.forEach((diff) => {
-        if (diff.diff <= 0) {
-            return 0;
-        }
-
-        const allocation = allocations.find(
-            (allocation) => allocation.name === diff.equity || allocation.equity === diff.equity,
-        );
-
-        if (!allocation) {
-            return;
-        }
-
-        if (Array.isArray(allocation.equity)) {
-            getEquityPriority(allocation.equity, positions).forEach((nextEquity) => {
-                equities.push(nextEquity);
-            });
-            return;
-        }
-
-        equities.push(allocation.equity);
-    });
-
-    return equities;
-};
-
-const getNextDiff = (allocations: Allocation[], positions: Position[]): string | null => {
-    if (allocations.length === 0) {
-        return null;
-    }
-
-    // Find the biggest diff
-    const actualRatios = getActualRatios(positions);
-    const diffs = allocations.map((allocation) => {
-        const { name, ratio } = allocation;
-        const actualRatio = findCurrentRatio(allocation, actualRatios);
-        return {
-            equity: name,
-            idealRatio: ratio,
-            actualRatio,
-            diff: ratio - actualRatio,
-        };
-    });
-
-    // FIXME: Handle ties to be more deterministic
-    diffs.sort((a, b) => b.diff - a.diff);
-
-    const biggestDiff = diffs[0] ?? null;
-    if (!biggestDiff) {
-        return null;
-    }
-
-    const allocation = allocations.find(
-        (allocation) => allocation.name === biggestDiff.equity || allocation.equity === biggestDiff.equity,
-    ) as Allocation;
-
-    if (Array.isArray(allocation.equity)) {
-        return getNextDiff(allocation.equity, positions);
-    }
-
-    return allocation.equity;
-};
-
-export const getDiffs = (allocations: Allocation[], positions: Position[]): Record<string, Diff> => {
-    const ratios = getActualRatios(positions);
-    const diffFn = (map: AnyObject<Diff>, allocation: Allocation): AnyObject<Diff> => {
-        const { equity, ratio: idealRatio } = allocation;
-        if (Array.isArray(equity)) {
-            return equity.reduce(diffFn, map);
-        }
-
-        const ratio = ratios.get(equity) || 0;
-
-        map[equity] = {
-            equity,
+            asset: typeof asset === 'string' ? asset : name ?? '',
             idealRatio,
-            ratio,
-            diff: idealRatio - ratio,
-        };
-
-        return map;
-    };
-
-    const diffs = allocations.reduce(diffFn, {} as Record<string, Diff>);
-    positions.forEach(({ symbol }) => {
-        if (diffs.hasOwnProperty(symbol)) {
-            return;
-        }
-
-        const ratio = ratios.get(symbol) || 0;
-        diffs[symbol] = {
-            equity: symbol,
-            idealRatio: 0,
-            ratio,
-            diff: -ratio,
+            actualRatio,
+            diff: idealRatio - actualRatio,
         };
     });
 
-    return diffs;
+    return diffs
+        .sort((a, b) => {
+            if (b.diff !== a.diff) {
+                return b.diff - a.diff;
+            }
+
+            return b.asset > a.asset ? 1 : -1;
+        })
+        .reduce((equities: string[], ratioDiff) => {
+            const { asset, diff } = ratioDiff;
+            const allocation = allocations.find(
+                (allocation) => allocation.asset === asset || allocation.name === asset,
+            );
+            if (!allocation) {
+                return equities;
+            }
+
+            // Ignore equities that are balanced or achieve balance by being sold
+            if (diff <= 0 && !Array.isArray(allocation.asset)) {
+                return equities;
+            }
+
+            if (Array.isArray(allocation.asset)) {
+                return equities.concat(getEquityPriority(allocation.asset, positions));
+            }
+
+            return equities.concat([allocation.asset]);
+        }, []);
 };
 
-export const greedy = (targetPortfolio: Allocation[], positions: Position[]): Order[] => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, prefer-const
-    let nextPositions = positions.slice();
+export const getEquityPriority = (allocations: Allocation[], positions: Position[]): string[] => {
+    if (allocations.length === 0) {
+        return [];
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, prefer-const
-    let cash = 1000;
+    // Find the biggest diff
+    const actualRatios = getActualRatios(positions);
+    const diffs = allocations.map((allocation) => {
+        const { name, asset, ratio: idealRatio } = allocation;
+        const actualRatio = findCurrentRatio(allocation, actualRatios);
+        return {
+            asset: typeof asset === 'string' ? asset : name ?? '',
+            idealRatio,
+            actualRatio,
+            diff: idealRatio - actualRatio,
+        };
+    });
 
-    const quotes = {
-        VB: 150,
-        VTI: 200,
-        BND: 100,
-        VXUS: 80,
-        VOO: 250,
-        SCHX: 80,
-        SCHA: 50,
-    };
-    const sortDiffs = (diffA: Diff, diffB: Diff): number => {
-        const ratioDiff = diffB.diff - diffA.diff;
-        if (ratioDiff !== 0) {
-            return ratioDiff;
-        }
+    return diffs
+        .sort((a, b) => {
+            if (b.diff !== a.diff) {
+                return b.diff - a.diff;
+            }
 
-        if (diffA.equity > diffB.equity) {
-            return 1;
-        }
+            return b.asset > a.asset ? 1 : -1;
+        })
+        .reduce((equities: string[], ratioDiff) => {
+            const { asset, diff } = ratioDiff;
+            const allocation = allocations.find(
+                (allocation) => allocation.asset === asset || allocation.name === asset,
+            );
+            if (!allocation) {
+                return equities;
+            }
 
-        return -1;
-    };
+            // Ignore equities that are balanced or achieve balance by being sold
+            if (diff <= 0 && !Array.isArray(allocation.asset)) {
+                return equities;
+            }
+
+            if (Array.isArray(allocation.asset)) {
+                return equities.concat(getEquityPriority(allocation.asset, positions));
+            }
+
+            return equities.concat([allocation.asset]);
+        }, []);
+};
+
+export const greedyIterative = (
+    cash: number,
+    targetPortfolio: Allocation[],
+    positions: Position[],
+    quotes: Quote[],
+): Order[] => {
+    console.time('greedy.iterative');
+    const nextPositions = new Map<string, Position>();
+    const currentPrices = quotes.reduce((priceMap, quote) => {
+        priceMap.set(quote.symbol, quote.askPrice);
+        return priceMap;
+    }, new Map<string, number>());
 
     let i = 0;
-    while (i < 2) {
-        const diffs = getDiffs(targetPortfolio, nextPositions);
-        console.log({ diffs: findDiffs(targetPortfolio, nextPositions), method: 'findDiffs' });
-        console.log({
-            equities: getEquityPriority(targetPortfolio, nextPositions),
-        });
-        const listDiffs = Object.values(diffs);
-        listDiffs.sort(sortDiffs);
 
-        for (let i = 0; i < listDiffs.length; i += 1) {
-            const target = listDiffs[i];
-            const equity = target.equity;
+    // Let's cap the iterations just in case...
+    while (i < 1_000_000) {
+        const np = positions.concat(Array.from(nextPositions.values()));
+
+        let purchased = false;
+        const priorities = getEquityPriority(targetPortfolio, np);
+        for (let k = 0; k < priorities.length; k += 1) {
+            const asset = priorities[k];
+            // Add a 0.5% price buffer
+            const price = (currentPrices.get(asset) || 0) * 1.005;
+            if (typeof price !== 'number' || price <= 0 || cash - price <= 0) {
+                continue;
+            }
+
+            cash -= price;
+            purchased = true;
+
+            const nextPosition = nextPositions.get(asset);
+            const nextQuantity = 1 + (nextPosition?.quantity ?? 0);
+            nextPositions.set(asset, {
+                exchange: 'nyse',
+                assetClass: 'some-class',
+                quantity: nextQuantity,
+                marketValue: nextQuantity * price,
+                currentPrice: price,
+                symbol: asset,
+            });
+
+            break;
         }
 
-        // console.log(listDiffs);
+        if (!purchased) {
+            console.log({
+                strategy: 'greedy.iterative',
+                action: 'No more purchases possible',
+                cash,
+                iterations: i,
+                // diff: findDiffs(targetPortfolio, np),
+                // ratios: getActualRatios(np),
+                positions: positions.concat(Array.from(nextPositions.values())).reduce((map, position) => {
+                    map.set(position.symbol, (map.get(position.symbol) || 0) + position.quantity);
+                    return map;
+                }, new Map<string, number>()),
+            });
+            break;
+        }
+
         i += 1;
     }
+
+    console.timeEnd('greedy.iterative');
+
+    return [];
+};
+
+export const greedy = (
+    cash: number,
+    targetPortfolio: Allocation[],
+    positions: Position[],
+    quotes: Quote[],
+): Order[] => {
+    console.time('greedy');
+    const nextPositions = new Map<string, Position>();
+    const currentPrices = quotes.reduce((priceMap, quote) => {
+        priceMap.set(quote.symbol, quote.askPrice);
+        return priceMap;
+    }, new Map<string, number>());
+
+    let i = 0;
+    while (i < 1_000_000) {
+        const nextPositionList = positions.concat(Array.from(nextPositions.values()));
+        const diffs = findDiffs(targetPortfolio, nextPositionList);
+
+        let cost = 0;
+        const priorities = getEquityPriority(targetPortfolio, nextPositionList);
+        for (let k = 0; k < priorities.length; k += 1) {
+            const asset = priorities[k];
+            // Add a 0.5% price buffer
+            const price = (currentPrices.get(asset) || 0) * 1.005;
+            if (typeof price !== 'number' || price <= 0) {
+                continue;
+            }
+
+            const assetDiff = diffs.get(asset);
+            if (!assetDiff) {
+                continue;
+            }
+
+            const { diff } = assetDiff;
+            if (diff < 0 /* && !isTaxSheltered */) {
+                console.log({ message: 'negative diff', diff: assetDiff });
+                continue;
+            }
+
+            const availableCash = cash * (diff / 2);
+            const quantities = [
+                Math.ceil(availableCash / price),
+                Math.round(availableCash / price),
+                Math.floor(availableCash / price),
+            ];
+            let quantity = 0;
+            for (let j = 0; j < quantities.length; j += 1) {
+                const nextQuantity = quantities[j] || 0;
+                if (nextQuantity === 0) {
+                    continue;
+                }
+                if (cash - nextQuantity * price > 0) {
+                    quantity = nextQuantity;
+                    break;
+                }
+            }
+
+            if (quantity === 0) {
+                continue;
+            }
+
+            cost += quantity * price;
+
+            const nextPosition = nextPositions.get(asset);
+            const nextQuantity = quantity + (nextPosition?.quantity ?? 0);
+            nextPositions.set(asset, {
+                exchange: 'nyse',
+                assetClass: 'some-class',
+                quantity: nextQuantity,
+                marketValue: nextQuantity * price,
+                currentPrice: price,
+                symbol: asset,
+            });
+        }
+
+        if (cost === 0) {
+            console.log({
+                strategy: 'greedy',
+                action: 'No more purchases possible',
+                cash,
+                iterations: i,
+                // diff: findDiffs(targetPortfolio, nextPositionList),
+                // ratios: getActualRatios(nextPositionList),
+                positions: positions.concat(Array.from(nextPositions.values())).reduce((map, position) => {
+                    map.set(position.symbol, (map.get(position.symbol) || 0) + position.quantity);
+                    return map;
+                }, new Map<string, number>()),
+            });
+            break;
+        } else {
+            cash -= cost;
+        }
+
+        i += 1;
+    }
+    console.timeEnd('greedy');
+    return [];
+};
+
+export const greedyV2 = (
+    cash: number,
+    targetPortfolio: Allocation[],
+    positions: Position[],
+    quotes: Quote[],
+): Order[] => {
+    console.time('greedy.v2');
+    const nextPositions = new Map<string, Position>();
+    const currentPrices = quotes.reduce((priceMap, quote) => {
+        priceMap.set(quote.symbol, quote.askPrice);
+        return priceMap;
+    }, new Map<string, number>());
+
+    let i = 0;
+    while (i < 1_000_000) {
+        const nextPositionList = positions.concat(Array.from(nextPositions.values()));
+        const diffs = findDiffs(targetPortfolio, nextPositionList);
+
+        let cost = 0;
+        const priorities = getEquityPriority(targetPortfolio, nextPositionList);
+        for (let k = 0; k < priorities.length; k += 1) {
+            const asset = priorities[k];
+            // Add a 0.5% price buffer
+            const price = (currentPrices.get(asset) || 0) * 1.005;
+            if (typeof price !== 'number' || price <= 0) {
+                continue;
+            }
+
+            const assetDiff = diffs.get(asset);
+            if (!assetDiff) {
+                continue;
+            }
+
+            const { diff } = assetDiff;
+            if (diff < 0 /* && !isTaxSheltered */) {
+                // console.log({ message: 'negative diff', diff: assetDiff });
+                continue;
+            }
+
+            const availableCash = cash * diff;
+            const roughQuantity = availableCash / price;
+            const quantities = [
+                // Math.ceil(roughQuantity),
+                Math.round(roughQuantity),
+                Math.floor(roughQuantity),
+            ];
+            let quantity = 0;
+            for (let j = 0; j < quantities.length; j += 1) {
+                const nextQuantity = quantities[j] || 0;
+                if (nextQuantity === 0) {
+                    continue;
+                }
+                if (cash - nextQuantity * price > 0) {
+                    quantity = nextQuantity;
+                    break;
+                }
+            }
+
+            if (quantity === 0) {
+                continue;
+            }
+
+            cost = quantity * price;
+            cash -= cost;
+
+            const nextPosition = nextPositions.get(asset);
+            const nextQuantity = quantity + (nextPosition?.quantity ?? 0);
+            nextPositions.set(asset, {
+                exchange: 'nyse',
+                assetClass: 'some-class',
+                quantity: nextQuantity,
+                marketValue: nextQuantity * price,
+                currentPrice: price,
+                symbol: asset,
+            });
+            break;
+        }
+
+        if (cost === 0) {
+            console.log({
+                strategy: 'greedy.v2',
+                action: 'No more purchases possible',
+                cash,
+                iterations: i,
+                // diff: findDiffs(targetPortfolio, nextPositionList),
+                // ratios: getActualRatios(nextPositionList),
+                positions: positions.concat(Array.from(nextPositions.values())).reduce((map, position) => {
+                    map.set(position.symbol, (map.get(position.symbol) || 0) + position.quantity);
+                    return map;
+                }, new Map<string, number>()),
+            });
+            break;
+        }
+
+        i += 1;
+    }
+    console.timeEnd('greedy.v2');
+    return [];
+};
+
+export const combo = (cash: number, targetPortfolio: Allocation[], positions: Position[], quotes: Quote[]): Order[] => {
     return [];
 };
 

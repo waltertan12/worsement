@@ -3,24 +3,20 @@ import { Allocation } from '../model';
 export const flattenAllocations = (allocations: Allocation[]): Allocation[] => {
     const total = allocations.reduce((aggregate, { ratio }) => (aggregate += ratio), 0);
 
-    return allocations.reduce((aggregate, { name, equity, ratio }) => {
-        if (typeof equity === 'string') {
-            aggregate.push({
-                name,
-                equity,
-                ratio: ratio / total,
-            });
+    return allocations.reduce((aggregate, allocation) => {
+        const { asset, ratio } = allocation;
+        if (typeof asset === 'string') {
+            aggregate.push(allocation);
 
             return aggregate;
         }
 
-        flattenAllocations(equity).forEach(({ ratio: childRatio, equity, name: childName }) =>
+        flattenAllocations(asset).forEach((childAllocation) => {
             aggregate.push({
-                equity,
-                name: childName || name,
-                ratio: (ratio * childRatio) / total,
-            }),
-        );
+                ...childAllocation,
+                ratio: (ratio * childAllocation.ratio) / total,
+            });
+        });
 
         return aggregate;
     }, [] as Allocation[]);

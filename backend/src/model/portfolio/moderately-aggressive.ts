@@ -4,56 +4,68 @@ export const ModeratelyAggressive: Portfolio = {
     id: 'moderately-aggressive',
     allocations: [
         {
+            // type: 'class',
             name: 'Large Cap',
-            equity: [
+            asset: [
                 {
-                    equity: 'VTI',
+                    // type: 'asset',
+                    asset: 'VTI',
+                    ratio: 0.2,
+                },
+                {
+                    // type: 'asset',
+                    asset: 'VOO',
                     ratio: 0,
                 },
                 {
-                    equity: 'VOO',
-                    ratio: 0,
+                    // type: 'asset',
+                    asset: 'SCHX',
+                    ratio: 0.4,
                 },
                 {
-                    equity: 'SCHX',
-                    ratio: 0.5,
-                },
-                {
-                    equity: 'VV',
-                    ratio: 0.5,
+                    // type: 'asset',
+                    asset: 'VV',
+                    ratio: 0.4,
                 },
             ],
             ratio: 0.45,
         },
         {
+            // type: 'class',
             name: 'Small Cap',
-            equity: [
+            asset: [
                 {
-                    equity: 'VB',
+                    // type: 'asset',
+                    asset: 'VB',
                     ratio: 0.5,
                 },
                 {
-                    equity: 'SCHA',
+                    // type: 'asset',
+                    asset: 'SCHA',
                     ratio: 0.5,
                 },
             ],
             ratio: 0.15,
         },
         {
+            // type: 'class',
             name: 'International',
-            equity: [
+            asset: [
                 {
-                    equity: 'VXUS',
+                    // type: 'asset',
+                    asset: 'VXUS',
                     ratio: 1,
                 },
             ],
             ratio: 0.2,
         },
         {
+            // type: 'class',
             name: 'Fixed Income',
-            equity: [
+            asset: [
                 {
-                    equity: 'BND',
+                    // type: 'asset',
+                    asset: 'BND',
                     ratio: 1,
                 },
             ],
