@@ -6,6 +6,7 @@ import './api';
 import './stream';
 
 import { greedyIterative } from './service/strategy/greedy-iterative';
+import { fillRatios } from './service/strategy/fill-ratios';
 import { getPortfolio } from './service/portfolio-service';
 
 const portfolio = getPortfolio(ModeratelyAggressive.id) as Portfolio;
@@ -96,3 +97,4 @@ const positions = [
 
 const cash = 1_000_000;
 greedyIterative(cash, portfolio.allocations, quotes, positions, []);
+fillRatios(cash, portfolio.allocations, quotes, positions, []);

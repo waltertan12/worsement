@@ -48,11 +48,10 @@ export const applyMiddleware = (app: Application): Application => {
     app.use(morgan('common'));
     app.use(
         session({
-            secret: process.env.SESSION_SECRET as string,
+            secret: process.env.SESSION_SECRET ?? '',
             resave: true,
         }),
     );
-
     app.use(passport.initialize());
     app.use(passport.session());
 
