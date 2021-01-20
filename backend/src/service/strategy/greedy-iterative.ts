@@ -1,4 +1,16 @@
-import { Buy, Day, Allocation, Market, OrderRequest, OrderType, Position, Side, TimeInForce, Quote } from '../../model';
+import {
+    Buy,
+    Day,
+    Allocation,
+    Market,
+    Order,
+    OrderRequest,
+    OrderType,
+    Position,
+    Side,
+    TimeInForce,
+    Quote,
+} from '../../model';
 import { Balancer } from './types';
 
 interface Diff {
@@ -127,13 +139,17 @@ const getAssetPriorities = (
 };
 
 /**
+ * TODO: Handle taxable vs non-taxable accounts aka handle selling
+ * TODO: Handle pending orders
+ *
  * Greedy algorithm that balances by buying or selling the most inbalanced assets
  *
  * Pros:
- *  - Pretty good at balancing
+ *  - Good at balancing
  * Cons:
- *  - O(n) where n is the amount of cash...
- *  - It should probably only be used if the available cash is 10,000 or less
+ *  - Slow
+ *      - O(n) where n is the amount of cash
+ *      - It should probably only be used if the available cash is 10,000 or less
  */
 export const greedyIterative: Balancer = (
     cash: number,
