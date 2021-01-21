@@ -17,6 +17,7 @@
     "@types/node": "^14.0.5",
     "@types/passport": "^1.0.3",
     "@types/passport-oauth2": "^1.4.9",
+    "@types/ramda": "^0.27.34",
     "@typescript-eslint/eslint-plugin": "^3.0.0",
     "@typescript-eslint/parser": "^3.0.0",
     "babel-jest": "^26.0.1",
@@ -46,6 +47,7 @@
     "passport": "^0.4.1",
     "passport-oauth2": "^1.5.0",
     "prom-client": "^12.0.0",
+    "ramda": "^0.27.1",
     "upgrade": "^1.1.0",
     "ws": "^7.3.0"
   },
