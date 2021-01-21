@@ -90,7 +90,7 @@ const findLeafDiffs = (
     positions: Position[],
     currentPrices: Map<string, number>,
     orders: Map<string, OrderRequest>,
-    parentRatio?: number
+    parentRatio?: number,
 ): Map<string, Diff> => {
     const total = allocations.reduce((sum: number, allocation: Allocation) => sum + allocation.ratio, 0);
     const ratios = getRatios(positions, currentPrices, orders);
@@ -101,7 +101,7 @@ const findLeafDiffs = (
         if (Array.isArray(asset)) {
             diffs = new Map<string, Diff>([
                 ...diffs,
-                ...findLeafDiffs(asset, positions, currentPrices, orders, idealRatio / total)
+                ...findLeafDiffs(asset, positions, currentPrices, orders, idealRatio / total),
             ]);
             return;
         }
@@ -160,7 +160,6 @@ const getAssetPriorities = (
             return equities.concat([allocation.asset]);
         }, []);
 };
-
 
 export const fillRatios: Balancer = (
     cash: number,
