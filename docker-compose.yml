@@ -5,4 +5,20 @@ services:
         image: portfolio-manager-backend:dev
         volumes:
             - ./backend:/var/www/html
-
+        depends_on:
+            - database
+        environment:
+           DATABASE_HOST: ${DATABASE_HOST}
+           DATABASE_PORT: ${DATABASE_PORT}
+           DATABASE_USER: ${DATABASE_USER}
+           DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+           DATABASE_DATABASE: ${DATABASE_DATABASE}
+           APCA_OAUTH2_CLIENT_ID: ${APCA_OAUTH2_CLIENT_ID}
+           APCA_OAUTH2_CLIENT_SECRET: ${APCA_OAUTH2_CLIENT_SECRET}
+           SESSION_SECRET: ${SESSION_SECRET}
+    database:
+        image: postgres:13
+        restart: always
+        environment:
+            POSTGRES_USER: ${DATABASE_USER}
+            POSTGRES_PASSWORD: ${DATABASE_PASSWORD}

@@ -1,13 +1,17 @@
 import { Portfolio, ModeratelyAggressive } from './model';
-// Start the API
-import './api';
 
 // Start the WebSocket
 import './stream';
 
+import { createConnection } from 'typeorm';
 import { greedyIterative } from './service/strategy/greedy-iterative';
 import { fillRatios } from './service/strategy/fill-ratios';
 import { getPortfolio } from './service/portfolio-service';
+import { startApi } from './api';
+
+createConnection()
+    .then(async (connection) => startApi())
+    .catch((error) => console.error(error));
 
 const portfolio = getPortfolio(ModeratelyAggressive.id) as Portfolio;
 const quotes = [

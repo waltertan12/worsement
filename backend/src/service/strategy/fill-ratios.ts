@@ -168,7 +168,7 @@ export const fillRatios: Balancer = (
     positions: Position[],
     orders: OrderRequest[],
 ): OrderRequest[] => {
-    console.time('fill-ratios');
+    // console.time('fill-ratios');
     const currentPrices = quotes.reduce((priceMap, quote) => {
         priceMap.set(quote.symbol, quote.askPrice);
         return priceMap;
@@ -241,13 +241,8 @@ export const fillRatios: Balancer = (
             });
         });
 
+        // The strategy is complete if we cannot make any purchases
         if (cost === 0) {
-            console.log({
-                i,
-                orders: newOrderRequests,
-                cash,
-                diffs,
-            });
             break;
         } else {
             cash -= cost;
@@ -256,7 +251,7 @@ export const fillRatios: Balancer = (
         i += 1;
     }
 
-    console.timeEnd('fill-ratios');
+    // console.timeEnd('fill-ratios');
 
     return Array.from(newOrderRequests.values());
 };

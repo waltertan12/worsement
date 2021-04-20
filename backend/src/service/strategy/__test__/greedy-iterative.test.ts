@@ -1,4 +1,4 @@
-import { describe, it, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { Buy, Day, Allocation, Market, OrderRequest, Position, Quote } from '.././../../model';
 import { greedyIterative } from '../greedy-iterative';
 
@@ -14,11 +14,7 @@ interface BalancerTestCase {
     orders: OrderRequest[];
 }
 
-test.each([[1, 1]], (a: number, b: number) => {
-    expect(a).toEqual(b);
-});
-
-describe('greedyIterative balancer', () => {
+describe('greedyIterative()', () => {
     test.each([
         [
             {
@@ -442,13 +438,13 @@ describe('greedyIterative balancer', () => {
             },
         ],
     ])(
-        `greedyIterative - %p`,
+        `greedyIterative() - priority %p`,
         (
             { allocations, cash, orders, positions, quotes }: BalancerTestCase,
             { orders: expectedOrders }: BalancerExpectation,
         ) => {
             const actualOrders = greedyIterative(cash, allocations, quotes, positions, orders);
-            console.log(actualOrders);
+            // console.log(actualOrders);
             expect(actualOrders).toHaveLength(expectedOrders.length);
 
             const orderMap = Object.values(actualOrders).reduce((map, order) => {
@@ -468,4 +464,9 @@ describe('greedyIterative balancer', () => {
             });
         },
     );
+
+    // TODO: test ratios
+    test.each([[1, 0]])('greedyIterative() - ratios %p', (inputs, outputs) => {
+        expect(inputs).toEqual(outputs);
+    });
 });

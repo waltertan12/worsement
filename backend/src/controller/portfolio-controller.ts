@@ -1,4 +1,98 @@
-import { Request, Response } from 'express';
-import { getStrategies } from '../service/strategy-service';
+import { Application, NextFunction, Request, Response } from 'express';
+import { Portfolio } from '../entity/portfolio';
+import { asyncRequestHandler } from './util';
+import { getRepository } from 'typeorm';
 
-export const index = (req: Request, res: Response): void => res.json({ data: getStrategies() }).status(200).end();
+export const registerRoutes = (app: Application) => {
+    app.post(
+        '/portfolios',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            const { body } = request;
+            // TODO: Validate the request body
+            const portfolio = new Portfolio();
+            portfolio.name = String(body.name ?? 'Cool new portfolio');
+            portfolio.description = String(body.description ?? 'Very in-depth description!!');
+            const portfolioRepository = getRepository(Portfolio);
+            const savedPortfolio = await portfolioRepository.save(portfolio);
+
+            return response
+                .status(201)
+                .json({
+                    data: savedPortfolio,
+                })
+                .end();
+        }),
+    );
+    app.get(
+        '/portfolios/:portfolioId([0-9]+)',
+        asyncRequestHandler(async (request: Request, response: Response) => {
+            const portfolioRepository = getRepository(Portfolio);
+            const portfolio = await portfolioRepository.findOne(Number(request.params.portfolioId), {
+                relations: ['allocations'],
+            });
+
+            if (!portfolio) {
+                return response
+                    .status(404)
+                    .json({
+                        errors: [
+                            {
+                                detail: 'Portfolio not found',
+                            },
+                        ],
+                    })
+                    .end();
+            }
+
+            const { allocations, ...rest } = portfolio;
+
+            return response.json({
+                data: {
+                    type: 'portfolio',
+                    ...rest,
+                },
+                included: portfolio.allocations.map((allocation) => ({
+                    type: 'allocation',
+                    ...allocation,
+                })),
+            });
+        }),
+    );
+    app.delete(
+        '/portfolios/:portfolioId([0-9]+)',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            const portfolioRepository = getRepository(Portfolio);
+            await portfolioRepository.delete(Number(request.params.portfolioId));
+
+            return response.status(204).end();
+        }),
+    );
+    app.put(
+        '/portfolios/:portfolioId([0-9]+)',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            const portfolioRepository = getRepository(Portfolio);
+            const portfolio = await portfolioRepository.findOne(Number(request.params.portfolioId));
+            if (!portfolio) {
+                return response.status(404).json({
+                    errors: [
+                        {
+                            detail: 'Portfolio not found',
+                        },
+                    ],
+                });
+            }
+
+            const { body } = request;
+            portfolio.name = body.name ? String(body.name) : 'Cool new portfolio';
+            portfolio.description = body.description ? String(body.description) : 'Very in-depth description!';
+            const savedPortfolio = await portfolioRepository.save(portfolio);
+
+            return response.json({
+                data: {
+                    type: 'portfolio',
+                    ...savedPortfolio,
+                },
+            });
+        }),
+    );
+};

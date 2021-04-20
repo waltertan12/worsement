@@ -76,7 +76,7 @@ const findRatioForAllocation = (allocation: Allocation, ratios: Map<string, numb
     return ratios.get(asset) ?? 0;
 };
 
-const findDiffs = (
+export const findDiffs = (
     allocations: Allocation[],
     positions: Position[],
     currentPrices: Map<string, number>,
@@ -158,7 +158,7 @@ export const greedyIterative: Balancer = (
     positions: Position[],
     orders: OrderRequest[],
 ): OrderRequest[] => {
-    console.time('greedy.iterative');
+    // console.time('greedy.iterative');
     const currentPrices = quotes.reduce((priceMap, quote) => {
         priceMap.set(quote.symbol, quote.askPrice);
         return priceMap;
@@ -232,14 +232,14 @@ export const greedyIterative: Balancer = (
         }
 
         if (cost === 0) {
-            console.log({
-                strategy: 'greedy.iterative',
-                action: 'No more purchases possible',
-                cash,
-                iterations: i,
-                orders: newOrderRequests,
-                diffs: findDiffs(allocations, positions, currentPrices, newOrderRequests),
-            });
+            // console.log({
+            //     strategy: 'greedy.iterative',
+            //     action: 'No more purchases possible',
+            //     cash,
+            //     iterations: i,
+            //     orders: newOrderRequests,
+            //     diffs: findDiffs(allocations, positions, currentPrices, newOrderRequests),
+            // });
             break;
         } else {
             cash -= cost;
@@ -248,7 +248,7 @@ export const greedyIterative: Balancer = (
         i += 1;
     }
 
-    console.timeEnd('greedy.iterative');
+    //console.timeEnd('greedy.iterative');
 
     return Array.from(newOrderRequests.values());
 };

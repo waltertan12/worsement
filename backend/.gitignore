@@ -1,6 +1,7 @@
-dist/
-yarn-error.log
-.env*
-.eslintignore
+.idea/
+.vscode/
 node_modules/
-
+build/
+tmp/
+temp/
+dist/
