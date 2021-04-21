@@ -144,10 +144,33 @@ const retrieveAllocation = (app: Application) =>
         }),
     );
 
+const updateAllocation = (app: Application) =>
+    app.put(
+        '/portfolios/:portfolioId([0-9]+)/allocations/:allocationId',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            // TODO
+            return response
+                .status(404)
+                .json({ errors: [{ detail: 'Endpoint not found' }] })
+                .end();
+        }),
+    );
+
+const deleteAllocation = (app: Application) =>
+    app.delete(
+        '/portfolios/:portfolioId([0-9]+)/allocations/:allocationId',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            // TODO
+            return response.status(204).end();
+        }),
+    );
+
 export const registerRoutes = (app: Application): Application => {
     listAllocations(app);
     createAllocation(app);
     retrieveAllocation(app);
+    updateAllocation(app);
+    deleteAllocation(app);
 
     return app;
 };
