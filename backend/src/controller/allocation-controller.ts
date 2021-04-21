@@ -4,6 +4,27 @@ import { asyncRequestHandler } from './util';
 import { getRepository, getTreeRepository } from 'typeorm';
 import { Portfolio } from '../entity/portfolio';
 
+const listAllocations = (app: Application) =>
+    app.get(
+        '/portfolios/:portfolioId([0-9]+)/allocations',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            const allocationRepository = getRepository(Allocation);
+            const portfolioId = Number(request.params.portfolioId);
+
+            const allocations = await allocationRepository.find({
+                where: {
+                    portfolio: portfolioId,
+                },
+            });
+
+            return response.status(200).json({
+                data: allocations.map((allocation) => ({
+                    type: 'allocation',
+                    ...allocation,
+                })),
+            });
+        }),
+    );
 const createAllocation = (app: Application) =>
     app.post(
         '/portfolios/:portfolioId([0-9]+)/allocations',
@@ -25,12 +46,6 @@ const createAllocation = (app: Application) =>
 
             const { description, equity, ratio, parentId } = request.body;
             const errors = [];
-            // if (equity && parentId) {
-            //     errors.push({
-            //         detail: 'Cannot set both "equity" and "parentId"',
-            //     });
-            // }
-
             if (ratio && Number(ratio) < 0) {
                 errors.push({
                     detail: 'Ratio cannot be less than zero',
@@ -130,6 +145,7 @@ const retrieveAllocation = (app: Application) =>
     );
 
 export const registerRoutes = (app: Application): Application => {
+    listAllocations(app);
     createAllocation(app);
     retrieveAllocation(app);
 
