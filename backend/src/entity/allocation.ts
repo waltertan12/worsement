@@ -1,16 +1,25 @@
-import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Tree } from 'typeorm';
 import { Portfolio } from './portfolio';
 
+@Tree('adjacency-list')
 @Entity()
 export class Allocation {
     @PrimaryGeneratedColumn({ unsigned: true })
     id: number;
 
+    @Index()
     @ManyToOne(() => Portfolio, (portfolio) => portfolio.allocations)
     portfolio: Portfolio;
 
     @Column({ unsigned: true, nullable: true })
     parentId?: number;
+
+    @Index()
+    @ManyToOne(() => Allocation, (allocation) => allocation.children)
+    parent: Allocation;
+
+    @OneToMany(() => Allocation, (allocation) => allocation.parent)
+    children: Allocation[];
 
     @Column({ nullable: true })
     equity?: string;

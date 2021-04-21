@@ -3,7 +3,25 @@ import { Portfolio } from '../entity/portfolio';
 import { asyncRequestHandler } from './util';
 import { getRepository } from 'typeorm';
 
-export const registerRoutes = (app: Application) => {
+export const registerRoutes = (app: Application): Application => {
+    app.get(
+        '/portfolios',
+        asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
+            // const { cursor, limit } = request.params;
+            // const portfolioRepository = getRepository(Portfolio);
+            // const savedPortfolio = await portfolioRepository.find({ });
+            return response
+                .status(200)
+                .json({
+                    data: [],
+                    first: null,
+                    last: null,
+                    next: null,
+                    prev: null,
+                })
+                .end();
+        }),
+    );
     app.post(
         '/portfolios',
         asyncRequestHandler(async (request: Request, response: Response, next: NextFunction) => {
@@ -45,14 +63,14 @@ export const registerRoutes = (app: Application) => {
                     .end();
             }
 
-            const { allocations, ...rest } = portfolio;
+            const { allocations = [], ...rest } = portfolio;
 
             return response.json({
                 data: {
                     type: 'portfolio',
                     ...rest,
                 },
-                included: portfolio.allocations.map((allocation) => ({
+                included: allocations.map((allocation) => ({
                     type: 'allocation',
                     ...allocation,
                 })),
@@ -96,4 +114,6 @@ export const registerRoutes = (app: Application) => {
             });
         }),
     );
+
+    return app;
 };

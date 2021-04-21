@@ -7,6 +7,7 @@ import { getStrategy, getStrategies } from './service/strategy-service';
 // import { flattenAllocations } from './service/allocation-service';
 // import { ModeratelyAggressive } from './model';
 import { registerRoutes as registerPortfolioRoutes } from './controller/portfolio-controller';
+import { registerRoutes as registerAllocationRoutes } from './controller/allocation-controller';
 
 // console.log(
 //     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -43,6 +44,7 @@ export const startApi = (): Application => {
     );
 
     registerPortfolioRoutes(app);
+    registerAllocationRoutes(app);
 
     // 404
     app.use((request: Request, response: Response, next: NextFunction) =>
