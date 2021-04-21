@@ -44,7 +44,7 @@ export const registerRoutes = (app: Application): Application => {
     app.get(
         '/portfolios/:portfolioId([0-9]+)',
         asyncRequestHandler(async (request: Request, response: Response) => {
-            const fetchAllocations = request.params.fetchAllocations === 'true';
+            const fetchAllocations = request.query.fetchAllocations === 'true';
             const portfolioRepository = getRepository(Portfolio);
             const portfolio = await portfolioRepository.findOne(Number(request.params.portfolioId), {
                 relations: fetchAllocations ? ['allocations'] : [],
