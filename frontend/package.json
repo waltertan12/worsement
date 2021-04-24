@@ -14,15 +14,15 @@
         "react": "^16.13.1",
         "react-dom": "^16.13.1",
         "react-scripts": "3.4.1",
-        "typescript": "~3.7.2"
+        "typescript": "^4"
     },
     "scripts": {
+        "start": "react-scripts start",
         "build": "react-scripts build",
+        "test": "react-scripts test",
         "eject": "react-scripts eject",
         "format": "prettier --write src/",
-        "lint": "eslint '*/**/*.{js,ts}' --quiet --fix",
-        "start": "react-scripts start",
-        "test": "react-scripts test"
+        "lint": "eslint '*/**/*.{js,ts}' --quiet --fix"
     },
     "eslintConfig": {
         "extends": "react-app"
