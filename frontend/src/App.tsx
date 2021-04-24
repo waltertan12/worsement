@@ -19,102 +19,113 @@ interface Account {
 }
 
 interface Order {
-	symbol: number;
-	quantity: number;
+    symbol: number;
+    quantity: number;
 }
 
 interface Response<T> {
     data: T;
 }
 
-const useStyles = makeStyles(theme => ({
-	root: {
-		display: 'flex',
-	},
-	appBar: {
-	},
-	appBarSpacer: theme.mixins.toolbar,
-	container: {
-		paddingTop: theme.spacing(4),
-		paddingBottom: theme.spacing(4),
-	},
-	content: {
-		flexGrow: 1,
-		height: '100vh',
-		overflow: 'auto',
-	},
-	paper: {
-		padding: theme.spacing(2),
-		display: 'flex',
-		overflow: 'auto',
-		flexDirection: 'column',
-	},
-	title: {
-		flexGrow: 1,
-	},
+const useStyles = makeStyles((theme) => ({
+    root: {
+        display: 'flex',
+    },
+    appBar: {},
+    appBarSpacer: theme.mixins.toolbar,
+    container: {
+        paddingTop: theme.spacing(4),
+        paddingBottom: theme.spacing(4),
+    },
+    content: {
+        flexGrow: 1,
+        height: '100vh',
+        overflow: 'auto',
+    },
+    paper: {
+        padding: theme.spacing(2),
+        display: 'flex',
+        overflow: 'auto',
+        flexDirection: 'column',
+    },
+    title: {
+        flexGrow: 1,
+    },
 }));
 
 function App() {
-	const classes = useStyles();
-    const [account, setAccount] = useState<Account|null>(null);
-	const [orders, setOrders] = useState<Order[]>([]);
+    const classes = useStyles();
+    const [account, setAccount] = useState<Account | null>(null);
+    const [orders, setOrders] = useState<Order[]>([]);
 
     useEffect(() => {
         const getAccount = async () => {
             const res = await fetch('http://localhost:3001/api/account');
-            const json = await res.json() as Response<Account>;
-        
+            const json = (await res.json()) as Response<Account>;
+
             setAccount(json.data);
         };
         const getOrders = async () => {
             const res = await fetch('http://localhost:3001/api/orders');
-            const json = await res.json() as Response<Order[]>;
-        
+            const json = (await res.json()) as Response<Order[]>;
+
             setOrders(json.data);
         };
 
         getAccount();
-		getOrders();
+        getOrders();
     }, []);
 
     return (
         <div className={classes.root}>
-			<CssBaseline />
+            <CssBaseline />
             <AppBar className={classes.appBar}>
-				<Toolbar>
-                	<Typography component="h1" variant="h6" className={classes.title}>Okayishment</Typography>
-				</Toolbar>
+                <Toolbar>
+                    <Typography component="h1" variant="h6" className={classes.title}>
+                        Okayishment
+                    </Typography>
+                </Toolbar>
             </AppBar>
-			<main className={classes.content}>
-				<div className={classes.appBarSpacer} />
-            	<Container maxWidth="lg" className={classes.container}>
-					<Grid container spacing={3}>
-						<Grid item xs={6}>
-							<Paper className={classes.paper}>
-								<Typography component="h2" variant="h6">Account Info:</Typography>
-            	    			<List>
-            	    			    {
-            	    			        account && Object
-            	    			            .entries(account)
-            	    			            .map(([a, b]) => (<ListItem key={a}><ListItemText>{a}: {b}</ListItemText></ListItem>))
-            	    			    }
-            	    			</List>
-							</Paper>
-						</Grid>
-						<Grid item xs={6}>
-							<Paper className={classes.paper}>
-								<Typography component="h2" variant="h6">Orders:</Typography>
-            	    			<List>
-            	    			    {
-            	    			        orders
-            	    			            .map((order: Order) => (<ListItem key={order.symbol}><ListItemText>{order.symbol}: {order.quantity}</ListItemText></ListItem>))
-            	    			    }
-            	    			</List>
-							</Paper>
-						</Grid>
-					</Grid>
-            	</Container>
-			</main>
+            <main className={classes.content}>
+                <div className={classes.appBarSpacer} />
+                <Container maxWidth="lg" className={classes.container}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={6}>
+                            <Paper className={classes.paper}>
+                                <Typography component="h2" variant="h6">
+                                    Account Info:
+                                </Typography>
+                                <List>
+                                    {account &&
+                                        Object.entries(account).map(([a, b]) => (
+                                            <ListItem key={a}>
+                                                <ListItemText>
+                                                    {a}: {b}
+                                                </ListItemText>
+                                            </ListItem>
+                                        ))}
+                                </List>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6}>
+                            <Paper className={classes.paper}>
+                                <Typography component="h2" variant="h6">
+                                    Orders:
+                                </Typography>
+                                <List>
+                                    {orders.map((order: Order) => (
+                                        <ListItem key={order.symbol}>
+                                            <ListItemText>
+                                                {order.symbol}: {order.quantity}
+                                            </ListItemText>
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </Paper>
+                        </Grid>
+                    </Grid>
+                </Container>
+            </main>
         </div>
     );
 }
